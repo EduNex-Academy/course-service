@@ -25,6 +25,10 @@ public class Module {
     @Column(nullable = false)
     private ModuleType type;
 
+    //Coins required to do this module
+    @Column(nullable = false)
+    private int coinsRequired;
+
     // Stores the S3 object key for video/pdf content
     private String contentUrl;
 

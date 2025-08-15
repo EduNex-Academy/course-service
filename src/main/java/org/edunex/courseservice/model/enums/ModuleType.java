@@ -4,5 +4,4 @@ public enum ModuleType {
     VIDEO,
     PDF,
     QUIZ,
-    LIVE_SESSION
 }
