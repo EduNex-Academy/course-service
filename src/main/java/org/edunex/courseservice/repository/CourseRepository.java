@@ -16,6 +16,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @Query("SELECT DISTINCT c FROM Course c JOIN c.enrollments e WHERE e.userId = :userId")
     List<Course> findEnrolledCoursesByUserId(@Param("userId") String userId);
 
-    @Query("SELECT c FROM Course c WHERE LOWER(c.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR LOWER(c.description) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+    // Modified query to avoid using LOWER on CLOB field
+    @Query("SELECT c FROM Course c WHERE c.title LIKE CONCAT('%', :searchTerm, '%') OR c.description LIKE CONCAT('%', :searchTerm, '%')")
     List<Course> searchCourses(@Param("searchTerm") String searchTerm);
 }
