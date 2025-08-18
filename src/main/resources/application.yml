@@ -2,8 +2,8 @@ spring:
   application:
     name: course-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgress_db
-    username: postgres
+    url: jdbc:postgresql://localhost:5432/course_db
+    username: postgress
     password: password
     driver-class-name: org.postgresql.Driver
   jpa:
