@@ -117,7 +117,13 @@ public class ModuleService {
 
         if (module.getCourse() != null) {
             dto.setCourseId(module.getCourse().getId());
-            dto.setCourseName(module.getCourse().getTitle());
+            // Handle potential lazy loading issues by checking if the session is still open
+            try {
+                dto.setCourseName(module.getCourse().getTitle());
+            } catch (Exception e) {
+                // If there's an issue accessing the course title, set a default or fetch it separately
+                dto.setCourseName("Course #" + module.getCourse().getId());
+            }
         }
 
         if (module.getQuiz() != null) {
