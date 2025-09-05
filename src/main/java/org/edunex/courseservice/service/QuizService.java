@@ -1,8 +1,12 @@
 package org.edunex.courseservice.service;
 
+import org.edunex.courseservice.dto.QuizAnswerDTO;
 import org.edunex.courseservice.dto.QuizDTO;
+import org.edunex.courseservice.dto.QuizQuestionDTO;
 import org.edunex.courseservice.model.Module;
 import org.edunex.courseservice.model.Quiz;
+import org.edunex.courseservice.model.QuizAnswer;
+import org.edunex.courseservice.model.QuizQuestion;
 import org.edunex.courseservice.repository.ModuleRepository;
 import org.edunex.courseservice.repository.QuizRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +26,7 @@ public class QuizService {
 
     @Autowired
     private ModuleRepository moduleRepository;
+
 
     public List<QuizDTO> getAllQuizzes() {
         List<Quiz> quizzes = quizRepository.findAll();
@@ -46,10 +51,45 @@ public class QuizService {
         Quiz quiz = new Quiz();
         quiz.setTitle(quizDTO.getTitle());
         quiz.setModule(module);
-        quiz.setQuestions(new ArrayList<>());
+
+        List<QuizQuestion> questions = quizDTO.getQuestions().stream()
+                .map(this::mapToQuizQuestionEntity)
+                .collect(Collectors.toList());
+
+        // Set the quiz reference for each question
+        questions.forEach(question -> question.setQuiz(quiz));
+
+        quiz.setQuestions(questions);
 
         Quiz savedQuiz = quizRepository.save(quiz);
         return mapToQuizDTO(savedQuiz);
+    }
+
+    private QuizQuestion mapToQuizQuestionEntity(QuizQuestionDTO dto) {
+        QuizQuestion question = new QuizQuestion();
+        question.setId(dto.getId());
+        question.setQuestionText(dto.getQuestionText());
+
+        // 1. First, create the list of QuizAnswer entities
+        List<QuizAnswer> answers = dto.getAnswers().stream()
+                .map(this::mapToQuizAnswerEntity)
+                .collect(Collectors.toList());
+
+        // 2. Set the back-reference on each answer to its parent question
+        answers.forEach(answer -> answer.setQuestion(question));
+
+        // 3. Now, set the complete list on the question object
+        question.setAnswers(answers);
+
+        return question;
+    }
+
+    private QuizAnswer mapToQuizAnswerEntity(QuizAnswerDTO dto) {
+        QuizAnswer answer = new QuizAnswer();
+        answer.setId(dto.getId());
+        answer.setAnswerText(dto.getAnswerText());
+        answer.setCorrect(dto.isCorrect());
+        return answer;
     }
 
     public QuizDTO updateQuiz(Long id, QuizDTO quizDTO) {

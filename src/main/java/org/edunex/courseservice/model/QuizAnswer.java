@@ -22,7 +22,7 @@ public class QuizAnswer {
     private boolean isCorrect;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "question_id", nullable = false)
+    @JoinColumn(name = "question_id")
     @JsonIgnore
     private QuizQuestion question;
 }

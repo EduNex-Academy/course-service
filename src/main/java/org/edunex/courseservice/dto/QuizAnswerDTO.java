@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 public class QuizAnswerDTO {
     private Long id;
     private String answerText;
-    private boolean isCorrect;
+    private boolean isCorrect ;
     private Long questionId;
 }
