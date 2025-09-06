@@ -32,7 +32,14 @@ public class CourseServiceImpl {
     private ProgressRepository progressRepository;
 
     public List<CourseDTO> getAllCourses(String userId) {
-        List<Course> courses = courseRepository.findAll();
+        List<Course> courses;
+
+        if (userId == null) {
+            courses = courseRepository.findAll();
+        } else {
+            courses = courseRepository.findEnrolledCoursesByUserId(userId);
+        }
+
         return mapToCourseDTOs(courses, userId);
     }
 

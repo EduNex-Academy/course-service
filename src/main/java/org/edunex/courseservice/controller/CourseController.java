@@ -5,7 +5,9 @@ import org.edunex.courseservice.service.impl.CourseServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.List;
 
@@ -17,7 +19,10 @@ public class CourseController {
     private CourseServiceImpl courseService;
 
     @GetMapping
-    public ResponseEntity<List<CourseDTO>> getAllCourses(@RequestParam(required = false) String userId) {
+    public ResponseEntity<List<CourseDTO>> getAllCourses(
+            @RequestParam(required = false, defaultValue = "false") boolean filterByUser,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = filterByUser ? jwt.getSubject() : null;
         List<CourseDTO> courseDTOs = courseService.getAllCourses(userId);
         return ResponseEntity.ok(courseDTOs);
     }
