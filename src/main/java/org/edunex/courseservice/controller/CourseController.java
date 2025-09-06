@@ -30,8 +30,9 @@ public class CourseController {
     @GetMapping("/{id}")
     public ResponseEntity<CourseDTO> getCourseById(
             @PathVariable Long id,
-            @RequestParam(required = false) String userId,
-            @RequestParam(defaultValue = "false") boolean includeModules) {
+            @RequestParam(defaultValue = "false") boolean includeModules,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         CourseDTO courseDTO = courseService.getCourseById(id, userId, includeModules);
         return ResponseEntity.ok(courseDTO);
     }
@@ -39,7 +40,8 @@ public class CourseController {
     @GetMapping("/instructor/{instructorId}")
     public ResponseEntity<List<CourseDTO>> getCoursesByInstructorId(
             @PathVariable String instructorId,
-            @RequestParam(required = false) String userId) {
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         List<CourseDTO> courseDTOs = courseService.getCoursesByInstructorId(instructorId, userId);
         return ResponseEntity.ok(courseDTOs);
     }
@@ -47,13 +49,15 @@ public class CourseController {
     @GetMapping("/category/{category}")
     public ResponseEntity<List<CourseDTO>> getCoursesByCategory(
             @PathVariable String category,
-            @RequestParam(required = false) String userId) {
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         List<CourseDTO> courseDTOs = courseService.getCoursesByCategory(category, userId);
         return ResponseEntity.ok(courseDTOs);
     }
 
     @GetMapping("/enrolled")
-    public ResponseEntity<List<CourseDTO>> getEnrolledCourses(@RequestParam String userId) {
+    public ResponseEntity<List<CourseDTO>> getEnrolledCourses(@AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         List<CourseDTO> courseDTOs = courseService.getEnrolledCourses(userId);
         return ResponseEntity.ok(courseDTOs);
     }
@@ -61,7 +65,8 @@ public class CourseController {
     @GetMapping("/search")
     public ResponseEntity<List<CourseDTO>> searchCourses(
             @RequestParam String query,
-            @RequestParam(required = false) String userId) {
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         List<CourseDTO> courseDTOs = courseService.searchCourses(query, userId);
         return ResponseEntity.ok(courseDTOs);
     }

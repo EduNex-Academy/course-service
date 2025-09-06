@@ -6,6 +6,8 @@ import org.edunex.courseservice.service.ModuleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,7 +28,8 @@ public class ModuleController {
     @GetMapping("/{id}")
     public ResponseEntity<ModuleDTO> getModuleById(
             @PathVariable Long id,
-            @RequestParam(required = false) String userId) {
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         ModuleDTO moduleDTO = moduleService.getModuleById(id, userId);
         return ResponseEntity.ok(moduleDTO);
     }
@@ -34,7 +37,8 @@ public class ModuleController {
     @GetMapping("/course/{courseId}")
     public ResponseEntity<List<ModuleDTO>> getModulesByCourseId(
             @PathVariable Long courseId,
-            @RequestParam(required = false) String userId) {
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         List<ModuleDTO> moduleDTOs = moduleService.getModulesByCourseId(courseId, userId);
         return ResponseEntity.ok(moduleDTOs);
     }
@@ -42,7 +46,8 @@ public class ModuleController {
     @GetMapping("/type/{type}")
     public ResponseEntity<List<ModuleDTO>> getModulesByType(
             @PathVariable ModuleType type,
-            @RequestParam(required = false) String userId) {
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         List<ModuleDTO> moduleDTOs = moduleService.getModulesByType(type, userId);
         return ResponseEntity.ok(moduleDTOs);
     }
@@ -51,7 +56,8 @@ public class ModuleController {
     public ResponseEntity<List<ModuleDTO>> getAvailableModulesByCourseIdAndCoins(
             @PathVariable Long courseId,
             @RequestParam int userCoins,
-            @RequestParam(required = false) String userId) {
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
         List<ModuleDTO> moduleDTOs = moduleService.getAvailableModulesByCourseIdAndCoins(courseId, userCoins, userId);
         return ResponseEntity.ok(moduleDTOs);
     }

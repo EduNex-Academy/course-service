@@ -5,6 +5,8 @@ import org.edunex.courseservice.service.EnrollmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -29,8 +31,9 @@ public class EnrollmentController {
         return ResponseEntity.ok(enrollmentDTO);
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<EnrollmentDTO>> getEnrollmentsByUserId(@PathVariable String userId) {
+    @GetMapping("/user")
+    public ResponseEntity<List<EnrollmentDTO>> getEnrollmentsByUserId(@AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         List<EnrollmentDTO> enrollmentDTOs = enrollmentService.getEnrollmentsByUserId(userId);
         return ResponseEntity.ok(enrollmentDTOs);
     }
@@ -43,8 +46,9 @@ public class EnrollmentController {
 
     @GetMapping("/check")
     public ResponseEntity<Boolean> checkEnrollment(
-            @RequestParam String userId,
-            @RequestParam Long courseId) {
+            @RequestParam Long courseId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         boolean isEnrolled = enrollmentService.checkEnrollment(userId, courseId);
         return ResponseEntity.ok(isEnrolled);
     }
@@ -61,10 +65,11 @@ public class EnrollmentController {
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/user/{userId}/course/{courseId}")
+    @DeleteMapping("/course/{courseId}")
     public ResponseEntity<Void> unenrollUserFromCourse(
-            @PathVariable String userId,
-            @PathVariable Long courseId) {
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         enrollmentService.unenrollUserFromCourse(userId, courseId);
         return ResponseEntity.noContent().build();
     }

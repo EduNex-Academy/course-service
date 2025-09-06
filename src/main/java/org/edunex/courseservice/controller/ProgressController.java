@@ -5,6 +5,8 @@ import org.edunex.courseservice.service.ProgressService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,8 +32,9 @@ public class ProgressController {
         return ResponseEntity.ok(progressDTO);
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ProgressDTO>> getProgressByUserId(@PathVariable String userId) {
+    @GetMapping("/user")
+    public ResponseEntity<List<ProgressDTO>> getProgressByUserId(@AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         List<ProgressDTO> progressDTOs = progressService.getProgressByUserId(userId);
         return ResponseEntity.ok(progressDTOs);
     }
@@ -42,42 +45,47 @@ public class ProgressController {
         return ResponseEntity.ok(progressDTOs);
     }
 
-    @GetMapping("/user/{userId}/module/{moduleId}")
+    @GetMapping("/module/{moduleId}")
     public ResponseEntity<ProgressDTO> getProgressByUserIdAndModuleId(
-            @PathVariable String userId,
-            @PathVariable Long moduleId) {
+            @PathVariable Long moduleId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         ProgressDTO progressDTO = progressService.getProgressByUserIdAndModuleId(userId, moduleId);
         return ResponseEntity.ok(progressDTO);
     }
 
-    @GetMapping("/user/{userId}/course/{courseId}")
+    @GetMapping("/course/{courseId}")
     public ResponseEntity<List<ProgressDTO>> getProgressByUserIdAndCourseId(
-            @PathVariable String userId,
-            @PathVariable Long courseId) {
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         List<ProgressDTO> progressDTOs = progressService.getProgressByUserIdAndCourseId(userId, courseId);
         return ResponseEntity.ok(progressDTOs);
     }
 
-    @GetMapping("/user/{userId}/course/{courseId}/stats")
+    @GetMapping("/course/{courseId}/stats")
     public ResponseEntity<Map<String, Object>> getCourseProgressStats(
-            @PathVariable String userId,
-            @PathVariable Long courseId) {
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         Map<String, Object> stats = progressService.getCourseProgressStats(userId, courseId);
         return ResponseEntity.ok(stats);
     }
 
-    @PostMapping("/user/{userId}/module/{moduleId}/complete")
+    @PostMapping("/module/{moduleId}/complete")
     public ResponseEntity<ProgressDTO> markModuleAsCompleted(
-            @PathVariable String userId,
-            @PathVariable Long moduleId) {
+            @PathVariable Long moduleId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         ProgressDTO progressDTO = progressService.markModuleAsCompleted(userId, moduleId);
         return new ResponseEntity<>(progressDTO, HttpStatus.CREATED);
     }
 
-    @PostMapping("/user/{userId}/module/{moduleId}/reset")
+    @PostMapping("/module/{moduleId}/reset")
     public ResponseEntity<ProgressDTO> resetModuleProgress(
-            @PathVariable String userId,
-            @PathVariable Long moduleId) {
+            @PathVariable Long moduleId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
         ProgressDTO progressDTO = progressService.resetModuleProgress(userId, moduleId);
         return ResponseEntity.ok(progressDTO);
     }
