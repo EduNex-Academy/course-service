@@ -45,7 +45,7 @@ public class ProgressController {
         return ResponseEntity.ok(progressDTOs);
     }
 
-    @GetMapping("/module/{moduleId}")
+    @GetMapping("/user/module/{moduleId}")
     public ResponseEntity<ProgressDTO> getProgressByUserIdAndModuleId(
             @PathVariable Long moduleId,
             @AuthenticationPrincipal Jwt jwt) {
