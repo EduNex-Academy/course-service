@@ -52,12 +52,17 @@ public class QuizService {
         quiz.setTitle(quizDTO.getTitle());
         quiz.setModule(module);
 
-        List<QuizQuestion> questions = quizDTO.getQuestions().stream()
-                .map(this::mapToQuizQuestionEntity)
-                .collect(Collectors.toList());
+        // Initialize an empty list if questions are null
+        List<QuizQuestion> questions = new ArrayList<>();
 
-        // Set the quiz reference for each question
-        questions.forEach(question -> question.setQuiz(quiz));
+        if (quizDTO.getQuestions() != null) {
+            questions = quizDTO.getQuestions().stream()
+                    .map(this::mapToQuizQuestionEntity)
+                    .collect(Collectors.toList());
+
+            // Set the quiz reference for each question
+            questions.forEach(question -> question.setQuiz(quiz));
+        }
 
         quiz.setQuestions(questions);
 
