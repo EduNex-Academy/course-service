@@ -30,6 +30,10 @@ public class Course {
     private String instructorId;
 
     private String category;
+    
+    // Thumbnail related fields
+    private String thumbnailObjectKey;
+    private String thumbnailUrl;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

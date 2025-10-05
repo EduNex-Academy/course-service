@@ -7,9 +7,12 @@ import org.edunex.courseservice.repository.CourseRepository;
 import org.edunex.courseservice.repository.EnrollmentRepository;
 import org.edunex.courseservice.repository.ModuleRepository;
 import org.edunex.courseservice.repository.ProgressRepository;
+import org.edunex.courseservice.service.CourseService;
+import org.edunex.courseservice.service.S3Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -17,7 +20,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class CourseServiceImpl {
+public class CourseServiceImpl implements CourseService {
 
     @Autowired
     private CourseRepository courseRepository;
@@ -30,6 +33,9 @@ public class CourseServiceImpl {
 
     @Autowired
     private ProgressRepository progressRepository;
+    
+    @Autowired
+    private S3Service s3Service;
 
     public List<CourseDTO> getAllCourses(String userId) {
         List<Course> courses;
@@ -110,6 +116,7 @@ public class CourseServiceImpl {
         dto.setInstructorId(course.getInstructorId());
         dto.setCategory(course.getCategory());
         dto.setCreatedAt(course.getCreatedAt());
+        dto.setThumbnailUrl(course.getThumbnailUrl());
 
         // Set module count
         dto.setModuleCount(course.getModules() != null ? course.getModules().size() : 0);
@@ -162,5 +169,38 @@ public class CourseServiceImpl {
         return courses.stream()
                 .map(course -> mapToCourseDTO(course, userId, false))
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * Upload a thumbnail image for a course
+     * 
+     * @param id The course ID
+     * @param file The thumbnail image file
+     * @return The updated course DTO with thumbnail URL
+     */
+    @Override
+    public CourseDTO uploadCourseThumbnail(Long id, MultipartFile file) {
+        // Find the course
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        
+        // Delete old thumbnail if it exists
+        if (course.getThumbnailObjectKey() != null && !course.getThumbnailObjectKey().isEmpty()) {
+            s3Service.deleteFile(course.getThumbnailObjectKey());
+        }
+        
+        // Upload the new thumbnail
+        String objectKey = s3Service.uploadCourseThumbnail(file, id);
+        
+        // Generate CloudFront URL
+        String thumbnailUrl = s3Service.getCloudFrontUrl(objectKey);
+        
+        // Update course with new thumbnail details
+        course.setThumbnailObjectKey(objectKey);
+        course.setThumbnailUrl(thumbnailUrl);
+        Course updatedCourse = courseRepository.save(course);
+        
+        // Return updated course
+        return mapToCourseDTO(updatedCourse, null, false);
     }
 }

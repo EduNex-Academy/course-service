@@ -18,6 +18,7 @@ public class CourseDTO {
     private String instructorName; // Optional - for display purposes
     private String category;
     private LocalDateTime createdAt;
+    private String thumbnailUrl;   // URL to the course thumbnail image
 
     // Statistics
     private int moduleCount;

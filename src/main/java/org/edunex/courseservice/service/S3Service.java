@@ -194,4 +194,50 @@ public class S3Service {
         // Format: https://[cloudfront-domain]/[object-key]
         return "https://" + cloudfrontDomain + "/" + objectKey;
     }
+    
+    /**
+     * Upload course thumbnail image to S3 bucket
+     * @param file The thumbnail image file to upload
+     * @param courseId The course ID to associate with the thumbnail
+     * @return The generated S3 object key for the uploaded thumbnail
+     */
+    public String uploadCourseThumbnail(MultipartFile file, Long courseId) {
+        try {
+            String contentType = file.getContentType();
+            
+            // Validate content type (ensure it's an image)
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    "Invalid file type. Only images are allowed for course thumbnails.");
+            }
+            
+            String extension = getExtensionFromContentType(contentType);
+            
+            // Generate a unique key for the thumbnail in S3 (in a course-thumbnails folder)
+            String objectKey = "course-thumbnails/" + courseId + "-" + UUID.randomUUID() + "." + extension;
+            
+            // Create metadata for the file
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("Content-Type", contentType);
+            metadata.put("course-id", courseId.toString());
+            
+            // Upload the thumbnail to S3
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(objectKey)
+                    .contentType(contentType)
+                    .metadata(metadata)
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(file.getBytes()));
+            
+            return objectKey;
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "Failed to upload thumbnail: " + e.getMessage());
+        } catch (S3Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "S3 error: " + e.getMessage());
+        }
+    }
 }
