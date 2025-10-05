@@ -24,6 +24,14 @@ public interface CourseService {
      * @return The updated course DTO with thumbnail URL
      */
     CourseDTO uploadCourseThumbnail(Long id, MultipartFile file);
+    
+    /**
+     * Publish a course, changing its status from DRAFT to PUBLISHED
+     * @param id The course ID
+     * @param userId The ID of the user trying to publish the course
+     * @return The updated course DTO with PUBLISHED status
+     */
+    CourseDTO publishCourse(Long id, String userId);
 
     // Helper methods for internal use
     CourseDTO mapToCourseDTO(Course course, String userId, boolean includeModules);

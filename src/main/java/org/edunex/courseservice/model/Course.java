@@ -1,6 +1,7 @@
 package org.edunex.courseservice.model;
 
 import jakarta.persistence.*;
+import jakarta.persistence.PostLoad;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -34,6 +35,10 @@ public class Course {
     // Thumbnail related fields
     private String thumbnailObjectKey;
     private String thumbnailUrl;
+    
+    // Course status field - temporarily nullable to allow schema update
+    @Enumerated(EnumType.STRING)
+    private CourseStatus status;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -45,4 +50,15 @@ public class Course {
     // A course has many enrollments
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Enrollment> enrollments;
+    
+    /**
+     * This method ensures that any course loaded from the database
+     * has a status value, even if the column was null.
+     */
+    @PostLoad
+    private void fillDefaultValues() {
+        if (status == null) {
+            status = CourseStatus.PUBLISHED; // Default existing courses to PUBLISHED
+        }
+    }
 }

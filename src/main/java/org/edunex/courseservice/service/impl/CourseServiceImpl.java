@@ -3,6 +3,7 @@ package org.edunex.courseservice.service.impl;
 import org.edunex.courseservice.dto.CourseDTO;
 import org.edunex.courseservice.dto.ModuleDTO;
 import org.edunex.courseservice.model.Course;
+import org.edunex.courseservice.model.CourseStatus;
 import org.edunex.courseservice.repository.CourseRepository;
 import org.edunex.courseservice.repository.EnrollmentRepository;
 import org.edunex.courseservice.repository.ModuleRepository;
@@ -82,6 +83,13 @@ public class CourseServiceImpl implements CourseService {
         course.setInstructorId(courseDTO.getInstructorId());
         course.setCategory(courseDTO.getCategory());
         course.setCreatedAt(LocalDateTime.now());
+        
+        // Explicitly set status from DTO or default to DRAFT
+        if (courseDTO.getStatus() != null) {
+            course.setStatus(courseDTO.getStatus());
+        } else {
+            course.setStatus(CourseStatus.DRAFT);
+        }
 
         Course savedCourse = courseRepository.save(course);
         return mapToCourseDTO(savedCourse, null, false);
@@ -94,6 +102,11 @@ public class CourseServiceImpl implements CourseService {
         course.setTitle(courseDTO.getTitle());
         course.setDescription(courseDTO.getDescription());
         course.setCategory(courseDTO.getCategory());
+
+        // Update status if provided in the DTO
+        if (courseDTO.getStatus() != null) {
+            course.setStatus(courseDTO.getStatus());
+        }
 
         // Instructor can't be changed unless by admin - would need additional checks here
 
@@ -117,6 +130,7 @@ public class CourseServiceImpl implements CourseService {
         dto.setCategory(course.getCategory());
         dto.setCreatedAt(course.getCreatedAt());
         dto.setThumbnailUrl(course.getThumbnailUrl());
+        dto.setStatus(course.getStatus());
 
         // Set module count
         dto.setModuleCount(course.getModules() != null ? course.getModules().size() : 0);
@@ -202,5 +216,38 @@ public class CourseServiceImpl implements CourseService {
         
         // Return updated course
         return mapToCourseDTO(updatedCourse, null, false);
+    }
+    
+    /**
+     * Publish a course, changing its status from DRAFT to PUBLISHED
+     * 
+     * @param id The course ID
+     * @param userId The ID of the user trying to publish the course
+     * @return The updated course DTO with PUBLISHED status
+     */
+    @Override
+    public CourseDTO publishCourse(Long id, String userId) {
+        // Find the course
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        
+        // Validate that the user is the instructor of the course
+        if (!course.getInstructorId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
+                "Only the instructor of the course can publish it");
+        }
+        
+        // Check if the course is already published
+        if (course.getStatus() == CourseStatus.PUBLISHED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Course is already published");
+        }
+        
+        // Update the course status to PUBLISHED
+        course.setStatus(CourseStatus.PUBLISHED);
+        Course updatedCourse = courseRepository.save(course);
+        
+        // Return updated course
+        return mapToCourseDTO(updatedCourse, userId, false);
     }
 }

@@ -106,4 +106,21 @@ public class CourseController {
         CourseDTO updatedCourse = courseService.uploadCourseThumbnail(id, file);
         return ResponseEntity.ok(updatedCourse);
     }
+    
+    /**
+     * Publish a course, changing its status from DRAFT to PUBLISHED
+     * 
+     * @param id The ID of the course to publish
+     * @param jwt The JWT token containing user information
+     * @return The updated course DTO with PUBLISHED status
+     */
+    @PostMapping("/{id}/publish")
+    public ResponseEntity<CourseDTO> publishCourse(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        
+        String userId = jwt.getSubject();
+        CourseDTO publishedCourse = courseService.publishCourse(id, userId);
+        return ResponseEntity.ok(publishedCourse);
+    }
 }

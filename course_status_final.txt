@@ -1,0 +1,6 @@
+// After executing the SQL script, update the Course.java file to make status non-nullable with a default value:
+
+    // Course status field
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CourseStatus status = CourseStatus.DRAFT;

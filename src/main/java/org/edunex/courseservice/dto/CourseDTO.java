@@ -3,6 +3,7 @@ package org.edunex.courseservice.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.edunex.courseservice.model.CourseStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,6 +20,7 @@ public class CourseDTO {
     private String category;
     private LocalDateTime createdAt;
     private String thumbnailUrl;   // URL to the course thumbnail image
+    private CourseStatus status;   // Status of the course (DRAFT or PUBLISHED)
 
     // Statistics
     private int moduleCount;
