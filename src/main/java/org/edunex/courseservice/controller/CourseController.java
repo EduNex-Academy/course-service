@@ -4,10 +4,12 @@ import org.edunex.courseservice.dto.CourseDTO;
 import org.edunex.courseservice.service.impl.CourseServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -87,5 +89,38 @@ public class CourseController {
     public ResponseEntity<Void> deleteCourse(@PathVariable Long id) {
         courseService.deleteCourse(id);
         return ResponseEntity.noContent().build();
+    }
+    
+    /**
+     * Upload a thumbnail image for a course
+     * 
+     * @param id The ID of the course
+     * @param file The thumbnail image file
+     * @return The updated course DTO with thumbnail URL
+     */
+    @PostMapping(value = "/{id}/thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CourseDTO> uploadCourseThumbnail(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        
+        CourseDTO updatedCourse = courseService.uploadCourseThumbnail(id, file);
+        return ResponseEntity.ok(updatedCourse);
+    }
+    
+    /**
+     * Publish a course, changing its status from DRAFT to PUBLISHED
+     * 
+     * @param id The ID of the course to publish
+     * @param jwt The JWT token containing user information
+     * @return The updated course DTO with PUBLISHED status
+     */
+    @PostMapping("/{id}/publish")
+    public ResponseEntity<CourseDTO> publishCourse(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        
+        String userId = jwt.getSubject();
+        CourseDTO publishedCourse = courseService.publishCourse(id, userId);
+        return ResponseEntity.ok(publishedCourse);
     }
 }
