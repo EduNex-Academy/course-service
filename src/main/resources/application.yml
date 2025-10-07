@@ -2,9 +2,9 @@ spring:
   application:
     name: course-service
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/course_db
+    username: postgress
+    password: password
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -33,3 +33,13 @@ aws:
 server:
   port: ${SERVER_PORT}
 
+
+# Actuator configuration for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

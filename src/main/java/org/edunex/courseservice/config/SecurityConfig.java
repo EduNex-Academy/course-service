@@ -25,7 +25,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 // Configure authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        // All requests must be authenticated (i.e., have a valid-looking JWT)
+                        // Allow public access to actuator health endpoint
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // All other requests must be authenticated (i.e., have a valid-looking JWT)
                         .anyRequest().authenticated()
                 )
                 // Configure the OAuth2 resource server to use JWTs
