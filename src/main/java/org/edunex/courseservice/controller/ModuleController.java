@@ -1,14 +1,18 @@
 package org.edunex.courseservice.controller;
 
+import org.edunex.courseservice.dto.FileDTO;
 import org.edunex.courseservice.dto.ModuleDTO;
 import org.edunex.courseservice.model.enums.ModuleType;
 import org.edunex.courseservice.service.ModuleService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -84,5 +88,33 @@ public class ModuleController {
     public ResponseEntity<Void> reorderModule(@PathVariable Long id, @RequestParam int newOrder) {
         moduleService.reorderModule(id, newOrder);
         return ResponseEntity.ok().build();
+    }
+    
+    /**
+     * Upload content (video or PDF) for a module
+     */
+    @PostMapping("/{id}/content")
+    public ResponseEntity<FileDTO> uploadModuleContent(
+            @PathVariable Long id, 
+            @RequestParam("file") MultipartFile file) {
+        FileDTO fileDTO = moduleService.uploadModuleContent(id, file);
+        return new ResponseEntity<>(fileDTO, HttpStatus.CREATED);
+    }
+    
+    /**
+     * Download content for a module
+     */
+    @GetMapping("/{id}/content")
+    public ResponseEntity<InputStreamResource> downloadModuleContent(@PathVariable Long id) {
+        return moduleService.downloadModuleContent(id);
+    }
+    
+    /**
+     * Delete content from a module
+     */
+    @DeleteMapping("/{id}/content")
+    public ResponseEntity<Void> deleteModuleContent(@PathVariable Long id) {
+        moduleService.deleteModuleContent(id);
+        return ResponseEntity.noContent().build();
     }
 }

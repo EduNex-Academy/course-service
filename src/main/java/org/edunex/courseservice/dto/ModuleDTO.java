@@ -14,6 +14,7 @@ public class ModuleDTO {
     private ModuleType type;
     private int coinsRequired;
     private String contentUrl;
+    private String contentCloudFrontUrl;  // CloudFront URL for content
     private int moduleOrder;
     private Long courseId;
     private String courseName;

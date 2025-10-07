@@ -1,5 +1,6 @@
 package org.edunex.courseservice.service;
 
+import org.edunex.courseservice.dto.FileDTO;
 import org.edunex.courseservice.dto.ModuleDTO;
 import org.edunex.courseservice.model.Course;
 import org.edunex.courseservice.model.Module;
@@ -9,8 +10,11 @@ import org.edunex.courseservice.repository.CourseRepository;
 import org.edunex.courseservice.repository.ModuleRepository;
 import org.edunex.courseservice.repository.ProgressRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -28,6 +32,9 @@ public class ModuleService {
 
     @Autowired
     private ProgressRepository progressRepository;
+    
+    @Autowired
+    private S3Service s3Service;
 
     public List<ModuleDTO> getAllModules() {
         List<Module> modules = moduleRepository.findAll();
@@ -113,6 +120,12 @@ public class ModuleService {
         dto.setType(module.getType());
         dto.setCoinsRequired(module.getCoinsRequired());
         dto.setContentUrl(module.getContentUrl());
+        
+        // Set CloudFront URL if content URL exists
+        if (module.getContentUrl() != null && !module.getContentUrl().isEmpty()) {
+            dto.setContentCloudFrontUrl(s3Service.getCloudFrontUrl(module.getContentUrl()));
+        }
+        
         dto.setModuleOrder(module.getModuleOrder());
 
         if (module.getCourse() != null) {
@@ -143,5 +156,98 @@ public class ModuleService {
         return modules.stream()
                 .map(module -> mapToModuleDTO(module, userId))
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * Upload content file for a module
+     * @param moduleId The ID of the module
+     * @param file The file to upload
+     * @return FileDTO with metadata about the uploaded file
+     */
+    public FileDTO uploadModuleContent(Long moduleId, MultipartFile file) {
+        Module module = moduleRepository.findById(moduleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
+        
+        // Check if the file is acceptable (video or PDF)
+        String contentType = file.getContentType();
+        if (contentType == null || 
+                !(contentType.startsWith("video/") || contentType.equals("application/pdf"))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    "Invalid file type. Only videos and PDFs are allowed.");
+        }
+        
+        // If the module already has content, delete the old one
+        if (module.getContentUrl() != null && !module.getContentUrl().isEmpty()) {
+            s3Service.deleteFile(module.getContentUrl());
+        }
+        
+        // Upload the new file
+        String objectKey = s3Service.uploadFile(file, moduleId);
+        
+        // Update the module with the new content URL
+        module.setContentUrl(objectKey);
+        moduleRepository.save(module);
+        
+        // Set the module type based on the content type
+        if (contentType.startsWith("video/")) {
+            module.setType(ModuleType.VIDEO);
+        } else if (contentType.equals("application/pdf")) {
+            module.setType(ModuleType.PDF);
+        }
+        moduleRepository.save(module);
+        
+        // Get CloudFront URL for this object
+        String cloudFrontUrl = s3Service.getCloudFrontUrl(objectKey);
+        
+        // Create and return the file DTO with CloudFront URL
+        return new FileDTO(
+                moduleId,
+                file.getOriginalFilename(),
+                contentType,
+                objectKey,
+                cloudFrontUrl,
+                file.getSize()
+        );
+    }
+    
+    /**
+     * Download content for a module
+     * @param moduleId The ID of the module
+     * @return ResponseEntity with the file content
+     */
+    public ResponseEntity<InputStreamResource> downloadModuleContent(Long moduleId) {
+        Module module = moduleRepository.findById(moduleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
+        
+        if (module.getContentUrl() == null || module.getContentUrl().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Module has no content");
+        }
+        
+        // Check if the file exists in S3
+        if (!s3Service.doesFileExist(module.getContentUrl())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found in storage");
+        }
+        
+        return s3Service.downloadFile(module.getContentUrl());
+    }
+    
+    /**
+     * Delete content from a module
+     * @param moduleId The ID of the module
+     */
+    public void deleteModuleContent(Long moduleId) {
+        Module module = moduleRepository.findById(moduleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
+        
+        if (module.getContentUrl() == null || module.getContentUrl().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Module has no content to delete");
+        }
+        
+        // Delete the file from S3
+        s3Service.deleteFile(module.getContentUrl());
+        
+        // Update the module
+        module.setContentUrl(null);
+        moduleRepository.save(module);
     }
 }
