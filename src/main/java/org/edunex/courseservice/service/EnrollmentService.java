@@ -1,6 +1,7 @@
 package org.edunex.courseservice.service;
 
 import org.edunex.courseservice.dto.EnrollmentDTO;
+import org.edunex.courseservice.event.CourseEvent;
 import org.edunex.courseservice.model.Course;
 import org.edunex.courseservice.model.Enrollment;
 import org.edunex.courseservice.repository.CourseRepository;
@@ -26,6 +27,9 @@ public class EnrollmentService {
 
     @Autowired
     private ProgressRepository progressRepository;
+
+    @Autowired
+    private CourseEventProducer courseEventProducer;
 
     public List<EnrollmentDTO> getAllEnrollments() {
         List<Enrollment> enrollments = enrollmentRepository.findAll();
@@ -66,6 +70,18 @@ public class EnrollmentService {
         enrollment.setEnrolledAt(LocalDateTime.now());
 
         Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
+
+        // Send event after user enrollment
+        CourseEvent event = new CourseEvent(
+                enrollmentDTO.getUserId(),
+                course.getId() != null ? course.getId().toString() : null,
+                course.getTitle(),
+                "USER_ENROLLED",
+                "You have successfully enrolled in the course '" + course.getTitle() + "'.",
+                "EMAIL"
+        );
+        courseEventProducer.sendEvent(event);
+
         return mapToEnrollmentDTO(savedEnrollment);
     }
 

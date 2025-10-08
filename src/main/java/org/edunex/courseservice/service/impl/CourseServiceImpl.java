@@ -4,6 +4,8 @@ import org.edunex.courseservice.dto.CourseDTO;
 import org.edunex.courseservice.dto.ModuleDTO;
 import org.edunex.courseservice.model.Course;
 import org.edunex.courseservice.model.CourseStatus;
+import org.edunex.courseservice.event.CourseEvent;
+import org.edunex.courseservice.service.CourseEventProducer;
 import org.edunex.courseservice.repository.CourseRepository;
 import org.edunex.courseservice.repository.EnrollmentRepository;
 import org.edunex.courseservice.repository.ModuleRepository;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 @Service
 public class CourseServiceImpl implements CourseService {
 
+
     @Autowired
     private CourseRepository courseRepository;
 
@@ -37,6 +40,9 @@ public class CourseServiceImpl implements CourseService {
     
     @Autowired
     private S3Service s3Service;
+
+    @Autowired
+    private CourseEventProducer courseEventProducer;
 
     public List<CourseDTO> getAllCourses(String userId) {
         List<Course> courses;
@@ -92,6 +98,19 @@ public class CourseServiceImpl implements CourseService {
         }
 
         Course savedCourse = courseRepository.save(course);
+        // Send event after course creation
+        CourseEvent event = new CourseEvent(
+            course.getInstructorId(),
+            savedCourse.getId() != null ? savedCourse.getId().toString() : null,
+            savedCourse.getTitle(),
+            "COURSE_CREATED",
+            "A new course titled '" + savedCourse.getTitle() + "' has been published.",
+            "PUSH"
+        );
+        courseEventProducer.sendEvent(event);
+
+
+
         return mapToCourseDTO(savedCourse, null, false);
     }
 
@@ -111,7 +130,19 @@ public class CourseServiceImpl implements CourseService {
         // Instructor can't be changed unless by admin - would need additional checks here
 
         Course updatedCourse = courseRepository.save(course);
+        // Send event after course update
+        CourseEvent event = new CourseEvent(
+            course.getInstructorId(),
+            updatedCourse.getId() != null ? updatedCourse.getId().toString() : null,
+            updatedCourse.getTitle(),
+            "COURSE_UPDATED",
+            "Course content for '" + updatedCourse.getTitle() + "' was updated.",
+            "PUSH"
+        );
+        courseEventProducer.sendEvent(event);
         return mapToCourseDTO(updatedCourse, null, false);
+
+
     }
 
     public void deleteCourse(Long id) {
@@ -246,8 +277,16 @@ public class CourseServiceImpl implements CourseService {
         // Update the course status to PUBLISHED
         course.setStatus(CourseStatus.PUBLISHED);
         Course updatedCourse = courseRepository.save(course);
-        
-        // Return updated course
+        // Send event after course publish
+        CourseEvent event = new CourseEvent(
+            userId,
+            updatedCourse.getId() != null ? updatedCourse.getId().toString() : null,
+            updatedCourse.getTitle(),
+            "COURSE_CREATED",
+            "A new course titled '" + updatedCourse.getTitle() + "' has been published.",
+            "PUSH"
+        );
+        courseEventProducer.sendEvent(event);
         return mapToCourseDTO(updatedCourse, userId, false);
     }
 }
