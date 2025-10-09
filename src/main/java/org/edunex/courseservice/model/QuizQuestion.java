@@ -20,7 +20,7 @@ public class QuizQuestion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String questionText;
 
     @ManyToOne(fetch = FetchType.LAZY)
