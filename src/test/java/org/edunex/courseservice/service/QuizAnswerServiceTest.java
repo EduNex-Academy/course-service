@@ -122,7 +122,7 @@ class QuizAnswerServiceTest {
     void getCorrectQuizAnswersByQuestionId_shouldReturnCorrectAnswers() {
         // Arrange
         List<QuizAnswer> answers = Arrays.asList(testAnswer);
-        when(quizAnswerRepository.findByQuestionIdAndIsCorrect(TEST_QUESTION_ID, true)).thenReturn(answers);
+        when(quizAnswerRepository.findByQuestionIdAndCorrect(TEST_QUESTION_ID, true)).thenReturn(answers);
 
         // Act
         List<QuizAnswerDTO> result = quizAnswerService.getCorrectQuizAnswersByQuestionId(TEST_QUESTION_ID);
@@ -131,7 +131,7 @@ class QuizAnswerServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.size()).isEqualTo(1);
         assertThat(result.get(0).isCorrect()).isTrue();
-        verify(quizAnswerRepository).findByQuestionIdAndIsCorrect(TEST_QUESTION_ID, true);
+        verify(quizAnswerRepository).findByQuestionIdAndCorrect(TEST_QUESTION_ID, true);
     }
 
     @Test

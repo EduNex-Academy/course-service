@@ -57,9 +57,11 @@ public class QuizResultService {
     }
 
     public QuizResultDTO createQuizResult(QuizResultDTO quizResultDTO) {
+        // Validate the quiz exists
         Quiz quiz = quizRepository.findById(quizResultDTO.getQuizId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found"));
 
+        // The userId will now come from the JWT token in the controller
         QuizResult quizResult = new QuizResult();
         quizResult.setUserId(quizResultDTO.getUserId());
         quizResult.setQuiz(quiz);

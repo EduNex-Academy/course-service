@@ -53,9 +53,30 @@ public class EnrollmentController {
         return ResponseEntity.ok(isEnrolled);
     }
 
+    /**
+     * Enroll the current user in a course (original method)
+     * @deprecated Use {@link #enrollInCourse(Long, Jwt)} instead
+     */
+    @Deprecated
     @PostMapping
     public ResponseEntity<EnrollmentDTO> createEnrollment(@RequestBody EnrollmentDTO enrollmentDTO) {
         EnrollmentDTO createdEnrollment = enrollmentService.createEnrollment(enrollmentDTO);
+        return new ResponseEntity<>(createdEnrollment, HttpStatus.CREATED);
+    }
+    
+    /**
+     * Enroll the current user in a course
+     * 
+     * @param courseId The ID of the course to enroll in
+     * @param jwt The JWT token containing user information
+     * @return The created enrollment details
+     */
+    @PostMapping("/course/{courseId}")
+    public ResponseEntity<EnrollmentDTO> enrollInCourse(
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
+        EnrollmentDTO createdEnrollment = enrollmentService.createEnrollment(userId, courseId);
         return new ResponseEntity<>(createdEnrollment, HttpStatus.CREATED);
     }
 

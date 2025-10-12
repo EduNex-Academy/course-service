@@ -38,41 +38,125 @@ public class CourseServiceImpl implements CourseService {
     @Autowired
     private S3Service s3Service;
 
-    public List<CourseDTO> getAllCourses(String userId) {
+    public List<CourseDTO> getAllCourses(String userId, CourseStatus status) {
         List<Course> courses;
 
         if (userId == null) {
-            courses = courseRepository.findAll();
+            // Return courses filtered by status
+            courses = courseRepository.findByStatus(status);
         } else {
-            courses = courseRepository.findEnrolledCoursesByUserId(userId);
+            // Check if this user is an instructor with courses
+            List<Course> instructorCourses = courseRepository.findByInstructorId(userId);
+            if (instructorCourses != null && !instructorCourses.isEmpty()) {
+                // If the user is an instructor, they can see all their courses
+                // If status is specified, filter by status
+                if (status != null) {
+                    courses = courseRepository.findByInstructorIdAndStatus(userId, status);
+                } else {
+                    // If no status is specified, show all their instructor courses
+                    courses = instructorCourses;
+                }
+            } else {
+                // For a regular user, show their enrolled courses with the specified status
+                courses = courseRepository.findEnrolledCoursesByUserIdAndStatus(userId, status);
+            }
         }
 
         return mapToCourseDTOs(courses, userId);
+    }
+    
+    // Keep the old method for backward compatibility
+    public List<CourseDTO> getAllCourses(String userId) {
+        return getAllCourses(userId, CourseStatus.PUBLISHED);
     }
 
     public CourseDTO getCourseById(Long id, String userId, boolean includeModules) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+                
+        // If no specific user and course is not published, return 403
+        if (userId == null && course.getStatus() != CourseStatus.PUBLISHED) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Course not available");
+        }
+        
+        return mapToCourseDTO(course, userId, includeModules);
+    }
+    
+    public CourseDTO getCourseById(Long id, String userId, boolean includeModules, CourseStatus requiredStatus) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+                
+        // If requiredStatus is provided, check that the course matches
+        if (requiredStatus != null && course.getStatus() != requiredStatus) {
+            // Only instructors can view their own draft courses
+            boolean isInstructor = userId != null && course.getInstructorId() != null && 
+                                  course.getInstructorId().equals(userId);
+            if (!isInstructor) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
+                    "Course not available with required status: " + requiredStatus);
+            }
+        }
+        
         return mapToCourseDTO(course, userId, includeModules);
     }
 
     public List<CourseDTO> getCoursesByInstructorId(String instructorId, String userId) {
-        List<Course> courses = courseRepository.findByInstructorId(instructorId);
+        // By default, only return published courses
+        return getCoursesByInstructorId(instructorId, userId, CourseStatus.PUBLISHED);
+    }
+    
+    public List<CourseDTO> getCoursesByInstructorId(String instructorId, String userId, CourseStatus status) {
+        List<Course> courses;
+        
+        // Check if the requesting user is the instructor
+        boolean isOwnCourses = userId != null && userId.equals(instructorId);
+        
+        if (isOwnCourses) {
+            // For instructors viewing their own courses, show all courses regardless of status
+            // If a specific status is requested, still apply that filter
+            if (status != null) {
+                courses = courseRepository.findByInstructorIdAndStatus(instructorId, status);
+            } else {
+                // If no status specified, return all courses for the instructor
+                courses = courseRepository.findByInstructorId(instructorId);
+            }
+        } else {
+            // For other users viewing an instructor's courses, only show courses with the requested status
+            courses = courseRepository.findByInstructorIdAndStatus(instructorId, status);
+        }
+        
         return mapToCourseDTOs(courses, userId);
     }
 
     public List<CourseDTO> getCoursesByCategory(String category, String userId) {
-        List<Course> courses = courseRepository.findByCategory(category);
+        // By default, only return published courses
+        return getCoursesByCategory(category, userId, CourseStatus.PUBLISHED);
+    }
+    
+    public List<CourseDTO> getCoursesByCategory(String category, String userId, CourseStatus status) {
+        // Need to filter by category and status
+        List<Course> courses = courseRepository.findByCategoryAndStatus(category, status);
         return mapToCourseDTOs(courses, userId);
     }
 
     public List<CourseDTO> getEnrolledCourses(String userId) {
-        List<Course> courses = courseRepository.findEnrolledCoursesByUserId(userId);
+        // By default, only return published courses
+        return getEnrolledCourses(userId, CourseStatus.PUBLISHED);
+    }
+    
+    public List<CourseDTO> getEnrolledCourses(String userId, CourseStatus status) {
+        List<Course> courses = courseRepository.findEnrolledCoursesByUserIdAndStatus(userId, status);
         return mapToCourseDTOs(courses, userId);
     }
 
     public List<CourseDTO> searchCourses(String query, String userId) {
-        List<Course> courses = courseRepository.searchCourses(query);
+        // By default, only return published courses when searching
+        List<Course> courses = courseRepository.searchCoursesByStatus(query, CourseStatus.PUBLISHED);
+        return mapToCourseDTOs(courses, userId);
+    }
+    
+    public List<CourseDTO> searchCourses(String query, String userId, CourseStatus status) {
+        List<Course> courses = courseRepository.searchCoursesByStatus(query, status);
         return mapToCourseDTOs(courses, userId);
     }
 

@@ -52,21 +52,39 @@ public class EnrollmentService {
         return enrollmentRepository.existsByUserIdAndCourseId(userId, courseId);
     }
 
-    public EnrollmentDTO createEnrollment(EnrollmentDTO enrollmentDTO) {
-        if (enrollmentRepository.existsByUserIdAndCourseId(enrollmentDTO.getUserId(), enrollmentDTO.getCourseId())) {
+    /**
+     * Create an enrollment for the specified user and course
+     * 
+     * @param userId The ID of the user enrolling in the course
+     * @param courseId The ID of the course to enroll in
+     * @return The created enrollment details
+     */
+    public EnrollmentDTO createEnrollment(String userId, Long courseId) {
+        if (enrollmentRepository.existsByUserIdAndCourseId(userId, courseId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already enrolled in this course");
         }
 
-        Course course = courseRepository.findById(enrollmentDTO.getCourseId())
+        Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
 
         Enrollment enrollment = new Enrollment();
-        enrollment.setUserId(enrollmentDTO.getUserId());
+        enrollment.setUserId(userId);
         enrollment.setCourse(course);
         enrollment.setEnrolledAt(LocalDateTime.now());
 
         Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
         return mapToEnrollmentDTO(savedEnrollment);
+    }
+    
+    /**
+     * Create an enrollment from an EnrollmentDTO
+     * @deprecated Use {@link #createEnrollment(String, Long)} instead
+     * @param enrollmentDTO The enrollment data
+     * @return The created enrollment details
+     */
+    @Deprecated
+    public EnrollmentDTO createEnrollment(EnrollmentDTO enrollmentDTO) {
+        return createEnrollment(enrollmentDTO.getUserId(), enrollmentDTO.getCourseId());
     }
 
     public void deleteEnrollment(Long id) {
