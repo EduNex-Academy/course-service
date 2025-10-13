@@ -62,7 +62,11 @@ public class QuizResultController {
     }
 
     @PostMapping
-    public ResponseEntity<QuizResultDTO> createQuizResult(@RequestBody QuizResultDTO quizResultDTO) {
+    public ResponseEntity<QuizResultDTO> createQuizResult(
+            @RequestBody QuizResultDTO quizResultDTO,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
+        quizResultDTO.setUserId(userId); // Set the user ID from the JWT token
         QuizResultDTO createdResult = quizResultService.createQuizResult(quizResultDTO);
         return new ResponseEntity<>(createdResult, HttpStatus.CREATED);
     }

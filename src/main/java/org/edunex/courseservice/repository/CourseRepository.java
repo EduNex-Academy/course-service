@@ -13,6 +13,7 @@ import java.util.List;
 public interface CourseRepository extends JpaRepository<Course, Long> {
     List<Course> findByInstructorId(String instructorId);
     List<Course> findByCategory(String category);
+    List<Course> findByCategoryAndStatus(String category, CourseStatus status);
     List<Course> findByStatus(CourseStatus status);
     List<Course> findByInstructorIdAndStatus(String instructorId, CourseStatus status);
 
