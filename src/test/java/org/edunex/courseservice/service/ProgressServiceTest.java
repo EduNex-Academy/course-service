@@ -258,7 +258,6 @@ class ProgressServiceTest {
         resetProgress.setCompleted(false);
         resetProgress.setCompletedAt(null);
 
-        when(moduleRepository.findById(TEST_MODULE_ID)).thenReturn(Optional.of(testModule));
         when(progressRepository.findByUserIdAndModuleId(TEST_USER_ID, TEST_MODULE_ID))
             .thenReturn(Optional.of(existingProgress));
         when(progressRepository.save(any(Progress.class))).thenReturn(resetProgress);
@@ -269,48 +268,22 @@ class ProgressServiceTest {
         // Assert
         assertThat(result).isNotNull();
         assertThat(result.isCompleted()).isFalse();
-        verify(moduleRepository).findById(TEST_MODULE_ID);
         verify(progressRepository).findByUserIdAndModuleId(TEST_USER_ID, TEST_MODULE_ID);
         verify(progressRepository).save(any(Progress.class));
     }
 
     @Test
-    @DisplayName("Should throw exception when resetting progress for non-existent module")
-    void resetModuleProgress_whenModuleNotFound_shouldThrowException() {
+    @DisplayName("Should throw exception when resetting non-existent progress")
+    void resetModuleProgress_whenProgressNotFound_shouldThrowException() {
         // Arrange
-        when(moduleRepository.findById(999L)).thenReturn(Optional.empty());
+        when(progressRepository.findByUserIdAndModuleId(TEST_USER_ID, 999L))
+            .thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(ResponseStatusException.class, 
             () -> progressService.resetModuleProgress(TEST_USER_ID, 999L));
-        verify(moduleRepository).findById(999L);
+        verify(progressRepository).findByUserIdAndModuleId(TEST_USER_ID, 999L);
         verify(progressRepository, never()).save(any(Progress.class));
-    }
-
-    @Test
-    @DisplayName("Should create new progress record when resetting non-existent progress")
-    void resetModuleProgress_whenProgressNotFound_shouldCreateNewProgress() {
-        // Arrange
-        Progress newProgress = new Progress();
-        newProgress.setId(1L);
-        newProgress.setUserId(TEST_USER_ID);
-        newProgress.setModule(testModule);
-        newProgress.setCompleted(false);
-
-        when(moduleRepository.findById(TEST_MODULE_ID)).thenReturn(Optional.of(testModule));
-        when(progressRepository.findByUserIdAndModuleId(TEST_USER_ID, TEST_MODULE_ID))
-            .thenReturn(Optional.empty());
-        when(progressRepository.save(any(Progress.class))).thenReturn(newProgress);
-
-        // Act
-        ProgressDTO result = progressService.resetModuleProgress(TEST_USER_ID, TEST_MODULE_ID);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.isCompleted()).isFalse();
-        verify(moduleRepository).findById(TEST_MODULE_ID);
-        verify(progressRepository).findByUserIdAndModuleId(TEST_USER_ID, TEST_MODULE_ID);
-        verify(progressRepository).save(any(Progress.class));
     }
 
     @Test
@@ -345,23 +318,83 @@ class ProgressServiceTest {
     void getCourseProgressStats_shouldReturnStats() {
         // Arrange
         long completedModules = 5;
+        long totalModules = 10;
+        double expectedPercentage = 50.0;
+        
         when(progressRepository.countCompletedModulesByCourseAndUser(TEST_USER_ID, TEST_COURSE_ID))
             .thenReturn(completedModules);
-        // This is a placeholder for however your service counts total modules per course
-        // For now we'll use a mock approach
-        when(moduleRepository.findByCourseId(TEST_COURSE_ID)).thenReturn(Arrays.asList(
-            testModule, testModule, testModule, testModule, testModule,
-            testModule, testModule, testModule, testModule, testModule
-        ));
+        when(progressRepository.countModulesByCourse(TEST_COURSE_ID))
+            .thenReturn(totalModules);
 
         // Act
         Map<String, Object> result = progressService.getCourseProgressStats(TEST_USER_ID, TEST_COURSE_ID);
 
         // Assert
         assertThat(result).isNotNull();
-        assertThat(result).containsKey("totalModules");
-        assertThat(result).containsKey("completedModules");
-        assertThat(result).containsKey("completionPercentage");
+        assertThat(result.get("userId")).isEqualTo(TEST_USER_ID);
+        assertThat(result.get("courseId")).isEqualTo(TEST_COURSE_ID);
+        assertThat(result.get("completedModules")).isEqualTo(completedModules);
+        assertThat(result.get("totalModules")).isEqualTo(totalModules);
+        assertThat(result.get("completionPercentage")).isEqualTo(expectedPercentage);
         verify(progressRepository).countCompletedModulesByCourseAndUser(TEST_USER_ID, TEST_COURSE_ID);
+        verify(progressRepository).countModulesByCourse(TEST_COURSE_ID);
+    }
+
+    @Test
+    @DisplayName("Should calculate zero percentage when no modules exist")
+    void getCourseProgressStats_whenNoModules_shouldReturnZeroPercentage() {
+        // Arrange
+        long completedModules = 0;
+        long totalModules = 0;
+        double expectedPercentage = 0.0;
+        
+        when(progressRepository.countCompletedModulesByCourseAndUser(TEST_USER_ID, TEST_COURSE_ID))
+            .thenReturn(completedModules);
+        when(progressRepository.countModulesByCourse(TEST_COURSE_ID))
+            .thenReturn(totalModules);
+
+        // Act
+        Map<String, Object> result = progressService.getCourseProgressStats(TEST_USER_ID, TEST_COURSE_ID);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.get("completionPercentage")).isEqualTo(expectedPercentage);
+        verify(progressRepository).countCompletedModulesByCourseAndUser(TEST_USER_ID, TEST_COURSE_ID);
+        verify(progressRepository).countModulesByCourse(TEST_COURSE_ID);
+    }
+    
+    @Test
+    @DisplayName("Should return progress by user id and course id")
+    void getProgressByUserIdAndCourseId_shouldReturnProgress() {
+        // Arrange
+        List<Progress> progressList = Arrays.asList(testProgress);
+        when(progressRepository.findByCourseIdAndUserId(TEST_USER_ID, TEST_COURSE_ID))
+            .thenReturn(progressList);
+
+        // Act
+        List<ProgressDTO> result = progressService.getProgressByUserIdAndCourseId(TEST_USER_ID, TEST_COURSE_ID);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.size()).isEqualTo(1);
+        assertThat(result.get(0).getUserId()).isEqualTo(TEST_USER_ID);
+        assertThat(result.get(0).getCourseId()).isEqualTo(TEST_COURSE_ID);
+        verify(progressRepository).findByCourseIdAndUserId(TEST_USER_ID, TEST_COURSE_ID);
+    }
+
+    @Test
+    @DisplayName("Should return empty list when no progress found by user id and course id")
+    void getProgressByUserIdAndCourseId_whenNoProgressFound_shouldReturnEmptyList() {
+        // Arrange
+        when(progressRepository.findByCourseIdAndUserId(TEST_USER_ID, TEST_COURSE_ID))
+            .thenReturn(List.of());
+
+        // Act
+        List<ProgressDTO> result = progressService.getProgressByUserIdAndCourseId(TEST_USER_ID, TEST_COURSE_ID);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
+        verify(progressRepository).findByCourseIdAndUserId(TEST_USER_ID, TEST_COURSE_ID);
     }
 }

@@ -40,6 +40,9 @@ class ModuleServiceTest {
 
     @Mock
     private ProgressRepository progressRepository;
+    
+    @Mock
+    private S3Service s3Service;
 
     @InjectMocks
     private ModuleService moduleService;
@@ -82,6 +85,9 @@ class ModuleServiceTest {
         testProgress.setModule(testModule);
         testProgress.setCompleted(true);
         testProgress.setCompletedAt(LocalDateTime.now());
+        
+        // Setup S3Service mock with lenient stubbing to avoid unnecessary stubbing errors
+        lenient().when(s3Service.getCloudFrontUrl(anyString())).thenReturn("https://cloudfront.example.com/video");
     }
 
     @Test
