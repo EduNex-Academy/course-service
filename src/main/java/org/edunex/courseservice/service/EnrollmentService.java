@@ -1,13 +1,13 @@
 package org.edunex.courseservice.service;
 
+import lombok.RequiredArgsConstructor;
 import org.edunex.courseservice.dto.EnrollmentDTO;
-import org.edunex.courseservice.event.CourseEvent;
+import org.edunex.courseservice.event.CourseEmailEvent;
 import org.edunex.courseservice.model.Course;
 import org.edunex.courseservice.model.Enrollment;
 import org.edunex.courseservice.repository.CourseRepository;
 import org.edunex.courseservice.repository.EnrollmentRepository;
 import org.edunex.courseservice.repository.ProgressRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -17,19 +17,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class EnrollmentService {
 
-    @Autowired
-    private EnrollmentRepository enrollmentRepository;
-
-    @Autowired
-    private CourseRepository courseRepository;
-
-    @Autowired
-    private ProgressRepository progressRepository;
-
-    @Autowired
-    private CourseEventProducer courseEventProducer;
+    private final EnrollmentRepository enrollmentRepository;
+    private final CourseRepository courseRepository;
+    private final ProgressRepository progressRepository;
+    private final CourseEventProducer courseEventProducer;
 
     public List<EnrollmentDTO> getAllEnrollments() {
         List<Enrollment> enrollments = enrollmentRepository.findAll();
@@ -78,16 +72,14 @@ public class EnrollmentService {
 
         Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
 
-        // Send event after user enrollment
-        CourseEvent event = new CourseEvent(
-                enrollmentDTO.getUserId(),
-                course.getId() != null ? course.getId().toString() : null,
+        // Send email event
+        CourseEmailEvent emailEvent = new CourseEmailEvent(
+                userId, // using userId as email address
                 course.getTitle(),
-                "USER_ENROLLED",
-                "You have successfully enrolled in the course '" + course.getTitle() + "'.",
-                "EMAIL"
+                userId, // using userId as student name for now
+                "ENROLLMENT"
         );
-        courseEventProducer.sendEvent(event);
+        courseEventProducer.sendEmailEvent(emailEvent);
 
         return mapToEnrollmentDTO(savedEnrollment);
     }
