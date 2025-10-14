@@ -2,6 +2,7 @@ package org.edunex.courseservice.service;
 
 import lombok.RequiredArgsConstructor;
 import org.edunex.courseservice.event.CourseEmailEvent;
+import org.edunex.courseservice.event.CourseEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -18,5 +19,8 @@ public class CourseEventProducer {
     public void sendEmailEvent(CourseEmailEvent event) {
         log.info("Sending course email event: {}", event);
         kafkaTemplate.send(TOPIC, event);
+    }
+
+    public void sendEvent(CourseEvent event) {
     }
 }
