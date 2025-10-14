@@ -19,6 +19,7 @@ public class QuizAnswer {
 
     private String answerText;
 
+    @Column(nullable = false)
     private boolean correct;
 
     @ManyToOne(fetch = FetchType.LAZY)

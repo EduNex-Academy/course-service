@@ -75,13 +75,18 @@ public class QuizService {
         question.setId(dto.getId());
         question.setQuestionText(dto.getQuestionText());
 
-        // 1. First, create the list of QuizAnswer entities
-        List<QuizAnswer> answers = dto.getAnswers().stream()
-                .map(this::mapToQuizAnswerEntity)
-                .collect(Collectors.toList());
+        // Handle null or empty answers list
+        List<QuizAnswer> answers = new ArrayList<>();
+        
+        if (dto.getAnswers() != null && !dto.getAnswers().isEmpty()) {
+            // 1. First, create the list of QuizAnswer entities
+            answers = dto.getAnswers().stream()
+                    .map(this::mapToQuizAnswerEntity)
+                    .collect(Collectors.toList());
 
-        // 2. Set the back-reference on each answer to its parent question
-        answers.forEach(answer -> answer.setQuestion(question));
+            // 2. Set the back-reference on each answer to its parent question
+            answers.forEach(answer -> answer.setQuestion(question));
+        }
 
         // 3. Now, set the complete list on the question object
         question.setAnswers(answers);
@@ -90,10 +95,14 @@ public class QuizService {
     }
 
     private QuizAnswer mapToQuizAnswerEntity(QuizAnswerDTO dto) {
+        if (dto.getAnswerText() == null || dto.getAnswerText().trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Answer text cannot be null or empty");
+        }
+        
         QuizAnswer answer = new QuizAnswer();
         answer.setId(dto.getId());
         answer.setAnswerText(dto.getAnswerText());
-        answer.setCorrect(dto.isCorrect());
+        answer.setCorrect(dto.isCorrect()); // This will default to false for primitive boolean
         return answer;
     }
 
