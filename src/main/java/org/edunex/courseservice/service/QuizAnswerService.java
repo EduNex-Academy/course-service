@@ -39,7 +39,7 @@ public class QuizAnswerService {
     }
 
     public List<QuizAnswerDTO> getCorrectQuizAnswersByQuestionId(Long questionId) {
-        List<QuizAnswer> answers = quizAnswerRepository.findByQuestionIdAndIsCorrect(questionId, true);
+        List<QuizAnswer> answers = quizAnswerRepository.findByQuestionIdAndCorrect(questionId, true);
         return mapToQuizAnswerDTOs(answers);
     }
 

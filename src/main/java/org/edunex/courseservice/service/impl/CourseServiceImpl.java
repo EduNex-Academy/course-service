@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 @Service
 public class CourseServiceImpl implements CourseService {
 
-
     @Autowired
     private CourseRepository courseRepository;
 
@@ -37,48 +36,134 @@ public class CourseServiceImpl implements CourseService {
 
     @Autowired
     private ProgressRepository progressRepository;
-    
+
     @Autowired
     private S3Service s3Service;
 
     @Autowired
     private CourseEventProducer courseEventProducer;
 
-    public List<CourseDTO> getAllCourses(String userId) {
+    public List<CourseDTO> getAllCourses(String userId, CourseStatus status) {
         List<Course> courses;
 
         if (userId == null) {
-            courses = courseRepository.findAll();
+            // Return courses filtered by status
+            courses = courseRepository.findByStatus(status);
         } else {
-            courses = courseRepository.findEnrolledCoursesByUserId(userId);
+            // Check if this user is an instructor with courses
+            List<Course> instructorCourses = courseRepository.findByInstructorId(userId);
+            if (instructorCourses != null && !instructorCourses.isEmpty()) {
+                // If the user is an instructor, they can see all their courses
+                // If status is specified, filter by status
+                if (status != null) {
+                    courses = courseRepository.findByInstructorIdAndStatus(userId, status);
+                } else {
+                    // If no status is specified, show all their instructor courses
+                    courses = instructorCourses;
+                }
+            } else {
+                // For a regular user, show their enrolled courses with the specified status
+                courses = courseRepository.findEnrolledCoursesByUserIdAndStatus(userId, status);
+            }
         }
 
         return mapToCourseDTOs(courses, userId);
     }
 
+    // Keep the old method for backward compatibility
+    public List<CourseDTO> getAllCourses(String userId) {
+        return getAllCourses(userId, CourseStatus.PUBLISHED);
+    }
+
     public CourseDTO getCourseById(Long id, String userId, boolean includeModules) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+
+        // If no specific user and course is not published, return 403
+        if (userId == null && course.getStatus() != CourseStatus.PUBLISHED) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Course not available");
+        }
+
+        return mapToCourseDTO(course, userId, includeModules);
+    }
+
+    public CourseDTO getCourseById(Long id, String userId, boolean includeModules, CourseStatus requiredStatus) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+
+        // If requiredStatus is provided, check that the course matches
+        if (requiredStatus != null && course.getStatus() != requiredStatus) {
+            // Only instructors can view their own draft courses
+            boolean isInstructor = userId != null && course.getInstructorId() != null &&
+                    course.getInstructorId().equals(userId);
+            if (!isInstructor) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Course not available with required status: " + requiredStatus);
+            }
+        }
+
         return mapToCourseDTO(course, userId, includeModules);
     }
 
     public List<CourseDTO> getCoursesByInstructorId(String instructorId, String userId) {
-        List<Course> courses = courseRepository.findByInstructorId(instructorId);
+        // By default, only return published courses
+        return getCoursesByInstructorId(instructorId, userId, CourseStatus.PUBLISHED);
+    }
+
+    public List<CourseDTO> getCoursesByInstructorId(String instructorId, String userId, CourseStatus status) {
+        List<Course> courses;
+
+        // Check if the requesting user is the instructor
+        boolean isOwnCourses = userId != null && userId.equals(instructorId);
+
+        if (isOwnCourses) {
+            // For instructors viewing their own courses, show all courses regardless of
+            // status
+            // If a specific status is requested, still apply that filter
+            if (status != null) {
+                courses = courseRepository.findByInstructorIdAndStatus(instructorId, status);
+            } else {
+                // If no status specified, return all courses for the instructor
+                courses = courseRepository.findByInstructorId(instructorId);
+            }
+        } else {
+            // For other users viewing an instructor's courses, only show courses with the
+            // requested status
+            courses = courseRepository.findByInstructorIdAndStatus(instructorId, status);
+        }
+
         return mapToCourseDTOs(courses, userId);
     }
 
     public List<CourseDTO> getCoursesByCategory(String category, String userId) {
-        List<Course> courses = courseRepository.findByCategory(category);
+        // By default, only return published courses
+        return getCoursesByCategory(category, userId, CourseStatus.PUBLISHED);
+    }
+
+    public List<CourseDTO> getCoursesByCategory(String category, String userId, CourseStatus status) {
+        // Need to filter by category and status
+        List<Course> courses = courseRepository.findByCategoryAndStatus(category, status);
         return mapToCourseDTOs(courses, userId);
     }
 
     public List<CourseDTO> getEnrolledCourses(String userId) {
-        List<Course> courses = courseRepository.findEnrolledCoursesByUserId(userId);
+        // By default, only return published courses
+        return getEnrolledCourses(userId, CourseStatus.PUBLISHED);
+    }
+
+    public List<CourseDTO> getEnrolledCourses(String userId, CourseStatus status) {
+        List<Course> courses = courseRepository.findEnrolledCoursesByUserIdAndStatus(userId, status);
         return mapToCourseDTOs(courses, userId);
     }
 
     public List<CourseDTO> searchCourses(String query, String userId) {
-        List<Course> courses = courseRepository.searchCourses(query);
+        // By default, only return published courses when searching
+        List<Course> courses = courseRepository.searchCoursesByStatus(query, CourseStatus.PUBLISHED);
+        return mapToCourseDTOs(courses, userId);
+    }
+
+    public List<CourseDTO> searchCourses(String query, String userId, CourseStatus status) {
+        List<Course> courses = courseRepository.searchCoursesByStatus(query, status);
         return mapToCourseDTOs(courses, userId);
     }
 
@@ -89,7 +174,7 @@ public class CourseServiceImpl implements CourseService {
         course.setInstructorId(courseDTO.getInstructorId());
         course.setCategory(courseDTO.getCategory());
         course.setCreatedAt(LocalDateTime.now());
-        
+
         // Explicitly set status from DTO or default to DRAFT
         if (courseDTO.getStatus() != null) {
             course.setStatus(courseDTO.getStatus());
@@ -100,16 +185,13 @@ public class CourseServiceImpl implements CourseService {
         Course savedCourse = courseRepository.save(course);
         // Send event after course creation
         CourseEvent event = new CourseEvent(
-            course.getInstructorId(),
-            savedCourse.getId() != null ? savedCourse.getId().toString() : null,
-            savedCourse.getTitle(),
-            "COURSE_CREATED",
-            "A new course titled '" + savedCourse.getTitle() + "' has been published.",
-            "PUSH"
-        );
+                course.getInstructorId(),
+                savedCourse.getId() != null ? savedCourse.getId().toString() : null,
+                savedCourse.getTitle(),
+                "COURSE_CREATED",
+                "A new course titled '" + savedCourse.getTitle() + "' has been published.",
+                "PUSH");
         courseEventProducer.sendEvent(event);
-
-
 
         return mapToCourseDTO(savedCourse, null, false);
     }
@@ -127,21 +209,20 @@ public class CourseServiceImpl implements CourseService {
             course.setStatus(courseDTO.getStatus());
         }
 
-        // Instructor can't be changed unless by admin - would need additional checks here
+        // Instructor can't be changed unless by admin - would need additional checks
+        // here
 
         Course updatedCourse = courseRepository.save(course);
         // Send event after course update
         CourseEvent event = new CourseEvent(
-            course.getInstructorId(),
-            updatedCourse.getId() != null ? updatedCourse.getId().toString() : null,
-            updatedCourse.getTitle(),
-            "COURSE_UPDATED",
-            "Course content for '" + updatedCourse.getTitle() + "' was updated.",
-            "PUSH"
-        );
+                course.getInstructorId(),
+                updatedCourse.getId() != null ? updatedCourse.getId().toString() : null,
+                updatedCourse.getTitle(),
+                "COURSE_UPDATED",
+                "Course content for '" + updatedCourse.getTitle() + "' was updated.",
+                "PUSH");
         courseEventProducer.sendEvent(event);
         return mapToCourseDTO(updatedCourse, null, false);
-
 
     }
 
@@ -215,11 +296,11 @@ public class CourseServiceImpl implements CourseService {
                 .map(course -> mapToCourseDTO(course, userId, false))
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Upload a thumbnail image for a course
      * 
-     * @param id The course ID
+     * @param id   The course ID
      * @param file The thumbnail image file
      * @return The updated course DTO with thumbnail URL
      */
@@ -228,31 +309,31 @@ public class CourseServiceImpl implements CourseService {
         // Find the course
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
-        
+
         // Delete old thumbnail if it exists
         if (course.getThumbnailObjectKey() != null && !course.getThumbnailObjectKey().isEmpty()) {
             s3Service.deleteFile(course.getThumbnailObjectKey());
         }
-        
+
         // Upload the new thumbnail
         String objectKey = s3Service.uploadCourseThumbnail(file, id);
-        
+
         // Generate CloudFront URL
         String thumbnailUrl = s3Service.getCloudFrontUrl(objectKey);
-        
+
         // Update course with new thumbnail details
         course.setThumbnailObjectKey(objectKey);
         course.setThumbnailUrl(thumbnailUrl);
         Course updatedCourse = courseRepository.save(course);
-        
+
         // Return updated course
         return mapToCourseDTO(updatedCourse, null, false);
     }
-    
+
     /**
      * Publish a course, changing its status from DRAFT to PUBLISHED
      * 
-     * @param id The course ID
+     * @param id     The course ID
      * @param userId The ID of the user trying to publish the course
      * @return The updated course DTO with PUBLISHED status
      */
@@ -261,31 +342,30 @@ public class CourseServiceImpl implements CourseService {
         // Find the course
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
-        
+
         // Validate that the user is the instructor of the course
         if (!course.getInstructorId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
-                "Only the instructor of the course can publish it");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only the instructor of the course can publish it");
         }
-        
+
         // Check if the course is already published
         if (course.getStatus() == CourseStatus.PUBLISHED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                "Course is already published");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Course is already published");
         }
-        
+
         // Update the course status to PUBLISHED
         course.setStatus(CourseStatus.PUBLISHED);
         Course updatedCourse = courseRepository.save(course);
         // Send event after course publish
         CourseEvent event = new CourseEvent(
-            userId,
-            updatedCourse.getId() != null ? updatedCourse.getId().toString() : null,
-            updatedCourse.getTitle(),
-            "COURSE_CREATED",
-            "A new course titled '" + updatedCourse.getTitle() + "' has been published.",
-            "PUSH"
-        );
+                userId,
+                updatedCourse.getId() != null ? updatedCourse.getId().toString() : null,
+                updatedCourse.getTitle(),
+                "COURSE_CREATED",
+                "A new course titled '" + updatedCourse.getTitle() + "' has been published.",
+                "PUSH");
         courseEventProducer.sendEvent(event);
         return mapToCourseDTO(updatedCourse, userId, false);
     }
