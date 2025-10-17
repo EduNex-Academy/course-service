@@ -76,7 +76,7 @@ public class EnrollmentController {
             @PathVariable Long courseId,
             @AuthenticationPrincipal Jwt jwt) {
         String userId = jwt.getSubject();
-        EnrollmentDTO createdEnrollment = enrollmentService.createEnrollment(userId, courseId);
+        EnrollmentDTO createdEnrollment = enrollmentService.createEnrollment(userId, courseId, jwt);
         return new ResponseEntity<>(createdEnrollment, HttpStatus.CREATED);
     }
 
