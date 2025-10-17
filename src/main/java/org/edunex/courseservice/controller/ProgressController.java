@@ -77,7 +77,7 @@ public class ProgressController {
             @PathVariable Long moduleId,
             @AuthenticationPrincipal Jwt jwt) {
         String userId = jwt.getSubject();
-        ProgressDTO progressDTO = progressService.markModuleAsCompleted(userId, moduleId);
+        ProgressDTO progressDTO = progressService.markModuleAsCompleted(userId, moduleId, jwt);
         return new ResponseEntity<>(progressDTO, HttpStatus.CREATED);
     }
 

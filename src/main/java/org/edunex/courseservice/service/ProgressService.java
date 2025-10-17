@@ -1,29 +1,31 @@
 package org.edunex.courseservice.service;
 
+import lombok.RequiredArgsConstructor;
 import org.edunex.courseservice.dto.ProgressDTO;
 import org.edunex.courseservice.model.Module;
 import org.edunex.courseservice.model.Progress;
 import org.edunex.courseservice.repository.ModuleRepository;
 import org.edunex.courseservice.repository.ProgressRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.edunex.courseservice.event.CourseEmailEvent;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class ProgressService {
 
-    @Autowired
-    private ProgressRepository progressRepository;
+    private final ProgressRepository progressRepository;
 
-    @Autowired
-    private ModuleRepository moduleRepository;
+    private final ModuleRepository moduleRepository;
+
+    private final CourseEventProducer courseEventProducer;
 
     public List<ProgressDTO> getAllProgress() {
         List<Progress> progressList = progressRepository.findAll();
@@ -74,7 +76,8 @@ public class ProgressService {
         );
     }
 
-    public ProgressDTO markModuleAsCompleted(String userId, Long moduleId) {
+    // Modified to accept Jwt so we can extract email/name and send completion email when course is finished
+    public ProgressDTO markModuleAsCompleted(String userId, Long moduleId, Jwt jwt) {
         Module module = moduleRepository.findById(moduleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
 
@@ -87,7 +90,35 @@ public class ProgressService {
         progress.setCompletedAt(LocalDateTime.now());
 
         Progress savedProgress = progressRepository.save(progress);
+
+        // After marking module completed, check if the user has completed all modules for the course
+        if (module.getCourse() != null) {
+            Long courseId = module.getCourse().getId();
+            Long completedModules = progressRepository.countCompletedModulesByCourseAndUser(userId, courseId);
+            Long totalModules = progressRepository.countModulesByCourse(courseId);
+
+            if (totalModules > 0 && completedModules.equals(totalModules)) {
+                // User completed the course - send course completion email event
+                String email = extractEmailFromJwt(jwt, userId);
+                String studentName = extractNameFromJwt(jwt, userId);
+
+                CourseEmailEvent emailEvent = new CourseEmailEvent(
+                        email,
+                        module.getCourse().getTitle(),
+                        studentName,
+                        "COURSE_COMPLETION"
+                );
+
+                courseEventProducer.sendEmailEvent(emailEvent);
+            }
+        }
+
         return mapToProgressDTO(savedProgress);
+    }
+
+    // Overload kept for compatibility (no JWT available)
+    public ProgressDTO markModuleAsCompleted(String userId, Long moduleId) {
+        return markModuleAsCompleted(userId, moduleId, null);
     }
 
     public ProgressDTO resetModuleProgress(String userId, Long moduleId) {
@@ -135,5 +166,43 @@ public class ProgressService {
         return progressList.stream()
                 .map(this::mapToProgressDTO)
                 .collect(Collectors.toList());
+    }
+
+    // Helper methods copied from EnrollmentService to extract email and name from Jwt
+    private String extractEmailFromJwt(Jwt jwt, String userId) {
+        if (jwt != null) {
+            String email = jwt.getClaim("email");
+            if (email != null && !email.isEmpty()) {
+                return email;
+            }
+        }
+
+        if (userId != null && userId.contains("@")) {
+            return userId;
+        }
+
+        return userId + "@edunex.academy";
+    }
+
+    private String extractNameFromJwt(Jwt jwt, String userId) {
+        if (jwt != null) {
+            String name = jwt.getClaim("name");
+            if (name == null || name.isEmpty()) {
+                name = jwt.getClaim("given_name");
+            }
+            if (name == null || name.isEmpty()) {
+                name = jwt.getClaim("preferred_username");
+            }
+            if (name != null && !name.isEmpty()) {
+                return name;
+            }
+        }
+
+        if (userId != null && userId.contains("@")) {
+            String localPart = userId.substring(0, userId.indexOf('@'));
+            return localPart.replace(".", " ");
+        }
+
+        return userId;
     }
 }
