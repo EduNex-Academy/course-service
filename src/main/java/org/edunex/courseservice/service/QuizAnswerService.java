@@ -44,12 +44,16 @@ public class QuizAnswerService {
     }
 
     public QuizAnswerDTO createQuizAnswer(QuizAnswerDTO answerDTO) {
+        if (answerDTO.getAnswerText() == null || answerDTO.getAnswerText().trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Answer text cannot be null or empty");
+        }
+        
         QuizQuestion question = quizQuestionRepository.findById(answerDTO.getQuestionId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz question not found"));
 
         QuizAnswer answer = new QuizAnswer();
         answer.setAnswerText(answerDTO.getAnswerText());
-        answer.setCorrect(answerDTO.isCorrect());
+        answer.setCorrect(answerDTO.isCorrect()); // This will default to false for primitive boolean
         answer.setQuestion(question);
 
         QuizAnswer savedAnswer = quizAnswerRepository.save(answer);
