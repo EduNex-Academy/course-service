@@ -22,6 +22,9 @@ COPY src src
 # Build the application
 RUN ./mvnw clean package -DskipTests
 
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Expose the port the app runs on
 EXPOSE 8082
 
