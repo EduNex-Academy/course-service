@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +37,8 @@ public class ModuleService {
     
     @Autowired
     private S3Service s3Service;
+
+    private static final Logger logger = LoggerFactory.getLogger(ModuleService.class);
 
     public List<ModuleDTO> getAllModules() {
         List<Module> modules = moduleRepository.findAll();
@@ -114,6 +118,7 @@ public class ModuleService {
     }
 
     private ModuleDTO mapToModuleDTO(Module module, String userId) {
+        logger.debug("mapToModuleDTO called for moduleId={}", module.getId());
         ModuleDTO dto = new ModuleDTO();
         dto.setId(module.getId());
         dto.setTitle(module.getTitle());
@@ -124,6 +129,7 @@ public class ModuleService {
         // Set CloudFront URL if content URL exists
         if (module.getContentUrl() != null && !module.getContentUrl().isEmpty()) {
             dto.setContentCloudFrontUrl(s3Service.getCloudFrontUrl(module.getContentUrl()));
+            logger.debug("Set content CloudFront URL for moduleId={} url={}", module.getId(), dto.getContentCloudFrontUrl());
         }
         
         dto.setModuleOrder(module.getModuleOrder());
@@ -149,6 +155,8 @@ public class ModuleService {
             dto.setProgressPercentage(dto.isCompleted() ? 100.0 : 0.0);
         }
 
+        logger.debug("mapToModuleDTO completed for moduleId={} completed={}", module.getId(), dto.isCompleted());
+
         return dto;
     }
 
@@ -165,6 +173,7 @@ public class ModuleService {
      * @return FileDTO with metadata about the uploaded file
      */
     public FileDTO uploadModuleContent(Long moduleId, MultipartFile file) {
+        logger.debug("uploadModuleContent called for moduleId={} filename={} size={}", moduleId, file.getOriginalFilename(), file.getSize());
         Module module = moduleRepository.findById(moduleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
         
@@ -195,6 +204,8 @@ public class ModuleService {
             module.setType(ModuleType.PDF);
         }
         moduleRepository.save(module);
+
+    logger.info("Uploaded module content moduleId={} objectKey={} contentType={}", moduleId, objectKey, file.getContentType());
         
         // Get CloudFront URL for this object
         String cloudFrontUrl = s3Service.getCloudFrontUrl(objectKey);
@@ -216,6 +227,7 @@ public class ModuleService {
      * @return ResponseEntity with the file content
      */
     public ResponseEntity<InputStreamResource> downloadModuleContent(Long moduleId) {
+        logger.debug("downloadModuleContent called for moduleId={}", moduleId);
         Module module = moduleRepository.findById(moduleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
         
@@ -225,9 +237,11 @@ public class ModuleService {
         
         // Check if the file exists in S3
         if (!s3Service.doesFileExist(module.getContentUrl())) {
+            logger.warn("File not found in S3 for moduleId={} key={}", moduleId, module.getContentUrl());
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found in storage");
         }
         
+        logger.info("Downloading module content for moduleId={} key={}", moduleId, module.getContentUrl());
         return s3Service.downloadFile(module.getContentUrl());
     }
     
@@ -236,6 +250,7 @@ public class ModuleService {
      * @param moduleId The ID of the module
      */
     public void deleteModuleContent(Long moduleId) {
+        logger.debug("deleteModuleContent called for moduleId={}", moduleId);
         Module module = moduleRepository.findById(moduleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
         
@@ -245,6 +260,8 @@ public class ModuleService {
         
         // Delete the file from S3
         s3Service.deleteFile(module.getContentUrl());
+
+        logger.info("Deleted module content for moduleId={} key={}", moduleId, module.getContentUrl());
         
         // Update the module
         module.setContentUrl(null);

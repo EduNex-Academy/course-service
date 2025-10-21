@@ -33,6 +33,11 @@ aws:
 server:
   port: ${SERVER_PORT}
 
+logging:
+  level:
+    root: DEBUG
+    org.edunex.courseservice: DEBUG
+
 
 # Actuator configuration for health checks
 management:

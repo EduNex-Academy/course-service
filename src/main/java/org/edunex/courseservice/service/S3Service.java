@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -23,6 +25,8 @@ import java.util.UUID;
 
 @Service
 public class S3Service {
+
+    private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
 
     @Autowired
     private S3Client s3Client;
@@ -41,6 +45,7 @@ public class S3Service {
      * @return The generated S3 object key for the uploaded file
      */
     public String uploadFile(MultipartFile file, Long moduleId) {
+        logger.debug("uploadFile called for moduleId={}, originalFilename={}, size={}", moduleId, file.getOriginalFilename(), file.getSize());
         try {
             String contentType = file.getContentType();
             String extension = getExtensionFromContentType(contentType);
@@ -62,11 +67,13 @@ public class S3Service {
                     .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(file.getBytes()));
-            
+            logger.info("Uploaded file to S3: bucket={}, key={}, moduleId={}", bucketName, objectKey, moduleId);
             return objectKey;
         } catch (IOException e) {
+            logger.error("IOException while uploading file for moduleId={}: {}", moduleId, e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload file: " + e.getMessage());
         } catch (S3Exception e) {
+            logger.error("S3Exception while uploading file for moduleId={}: {}", moduleId, e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "S3 error: " + e.getMessage());
         }
     }
@@ -77,6 +84,7 @@ public class S3Service {
      * @return ResponseEntity with the file content
      */
     public ResponseEntity<InputStreamResource> downloadFile(String objectKey) {
+        logger.debug("downloadFile called for key={}", objectKey);
         try {
             // Get object request
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -100,12 +108,14 @@ public class S3Service {
             headers.setContentDispositionFormData("attachment", filename);
             
             // Return the file as a streaming response
+            logger.info("Streaming file from S3: bucket={}, key={}", bucketName, objectKey);
             return new ResponseEntity<>(
                 new InputStreamResource(s3Object),
                 headers,
                 HttpStatus.OK
             );
         } catch (S3Exception e) {
+            logger.error("S3Exception while downloading key={}: {}", objectKey, e.getMessage(), e);
             if (e.statusCode() == 404) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
             }
@@ -118,6 +128,7 @@ public class S3Service {
      * @param objectKey The S3 object key for the file
      */
     public void deleteFile(String objectKey) {
+        logger.debug("deleteFile called for key={}", objectKey);
         try {
             DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
                     .bucket(bucketName)
@@ -125,7 +136,9 @@ public class S3Service {
                     .build();
             
             s3Client.deleteObject(deleteObjectRequest);
+            logger.info("Deleted object from S3: bucket={}, key={}", bucketName, objectKey);
         } catch (S3Exception e) {
+            logger.error("S3Exception while deleting key={}: {}", objectKey, e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to delete file: " + e.getMessage());
         }
     }
@@ -136,6 +149,7 @@ public class S3Service {
      * @return true if the object exists, false otherwise
      */
     public boolean doesFileExist(String objectKey) {
+        logger.debug("doesFileExist called for key={}", objectKey);
         try {
             HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
                     .bucket(bucketName)
@@ -143,8 +157,10 @@ public class S3Service {
                     .build();
             
             s3Client.headObject(headObjectRequest);
+            logger.debug("Object exists in S3: bucket={}, key={}", bucketName, objectKey);
             return true;
         } catch (NoSuchKeyException e) {
+            logger.debug("Object does not exist in S3: key={}", objectKey);
             return false;
         }
     }

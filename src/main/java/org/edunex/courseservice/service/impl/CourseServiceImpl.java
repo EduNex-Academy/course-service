@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class CourseServiceImpl implements CourseService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CourseServiceImpl.class);
 
     @Autowired
     private CourseRepository courseRepository;
@@ -161,6 +165,7 @@ public class CourseServiceImpl implements CourseService {
     }
 
     public CourseDTO createCourse(CourseDTO courseDTO) {
+        logger.debug("createCourse called with title={}, instructorId={}", courseDTO.getTitle(), courseDTO.getInstructorId());
         Course course = new Course();
         course.setTitle(courseDTO.getTitle());
         course.setDescription(courseDTO.getDescription());
@@ -176,10 +181,12 @@ public class CourseServiceImpl implements CourseService {
         }
 
         Course savedCourse = courseRepository.save(course);
+        logger.info("Created course id={} title={}", savedCourse.getId(), savedCourse.getTitle());
         return mapToCourseDTO(savedCourse, null, false);
     }
 
     public CourseDTO updateCourse(Long id, CourseDTO courseDTO) {
+        logger.debug("updateCourse called for id={} with title={}", id, courseDTO.getTitle());
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
 
@@ -195,14 +202,18 @@ public class CourseServiceImpl implements CourseService {
         // Instructor can't be changed unless by admin - would need additional checks here
 
         Course updatedCourse = courseRepository.save(course);
+        logger.info("Updated course id={}", updatedCourse.getId());
         return mapToCourseDTO(updatedCourse, null, false);
     }
 
     public void deleteCourse(Long id) {
+        logger.debug("deleteCourse called for id={}", id);
         if (!courseRepository.existsById(id)) {
+            logger.warn("Attempted to delete non-existing course id={}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found");
         }
         courseRepository.deleteById(id);
+        logger.info("Deleted course id={}", id);
     }
 
     public CourseDTO mapToCourseDTO(Course course, String userId, boolean includeModules) {
@@ -278,6 +289,7 @@ public class CourseServiceImpl implements CourseService {
      */
     @Override
     public CourseDTO uploadCourseThumbnail(Long id, MultipartFile file) {
+        logger.debug("uploadCourseThumbnail called for courseId={}, originalFilename={}, size={}", id, file.getOriginalFilename(), file.getSize());
         // Find the course
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
@@ -297,6 +309,7 @@ public class CourseServiceImpl implements CourseService {
         course.setThumbnailObjectKey(objectKey);
         course.setThumbnailUrl(thumbnailUrl);
         Course updatedCourse = courseRepository.save(course);
+        logger.info("Uploaded thumbnail for courseId={} objectKey={}", id, objectKey);
         
         // Return updated course
         return mapToCourseDTO(updatedCourse, null, false);
@@ -311,6 +324,7 @@ public class CourseServiceImpl implements CourseService {
      */
     @Override
     public CourseDTO publishCourse(Long id, String userId) {
+        logger.debug("publishCourse called for id={} by userId={}", id, userId);
         // Find the course
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
@@ -330,6 +344,7 @@ public class CourseServiceImpl implements CourseService {
         // Update the course status to PUBLISHED
         course.setStatus(CourseStatus.PUBLISHED);
         Course updatedCourse = courseRepository.save(course);
+        logger.info("Published course id={} by instructorId={}", id, userId);
         
         // Return updated course
         return mapToCourseDTO(updatedCourse, userId, false);
